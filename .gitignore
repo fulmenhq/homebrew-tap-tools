@@ -1,0 +1,15 @@
+# Planning and internal documentation
+.plans/
+
+# macOS
+.DS_Store
+
+# Editor
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Git hooks (use make install-hooks instead)
+.git/hooks/pre-commit
