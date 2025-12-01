@@ -5,8 +5,18 @@ set -euo pipefail
 # Script to update a Homebrew formula with new version and checksums
 # Usage: ./scripts/update-formula.sh <app-name> <version> [--local]
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-TAP_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+# Handle both direct execution, Makefile invocation, and curl piping
+if [ -f "Formula/goneat.rb" ] || [ -d "Formula" ]; then
+  # Already in homebrew-tap directory (called from Makefile or cd'd here)
+  TAP_ROOT="$(pwd)"
+elif [ -n "${BASH_SOURCE[0]:-}" ]; then
+  # Direct execution from homebrew-tap-tools directory
+  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  TAP_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+else
+  # Piped via curl - use current working directory (should be homebrew-tap)
+  TAP_ROOT="$(pwd)"
+fi
 
 usage() {
   cat <<EOF
