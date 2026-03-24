@@ -7,19 +7,19 @@ set -euo pipefail
 
 # Handle both direct execution, Makefile invocation, and curl piping
 if [ -f "Formula/goneat.rb" ] || [ -d "Formula" ]; then
-  # Already in homebrew-tap directory (called from Makefile or cd'd here)
-  TAP_ROOT="$(pwd)"
+	# Already in homebrew-tap directory (called from Makefile or cd'd here)
+	TAP_ROOT="$(pwd)"
 elif [ -n "${BASH_SOURCE[0]:-}" ]; then
-  # Direct execution from homebrew-tap-tools directory
-  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-  TAP_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+	# Direct execution from homebrew-tap-tools directory
+	SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+	TAP_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 else
-  # Piped via curl - use current working directory (should be homebrew-tap)
-  TAP_ROOT="$(pwd)"
+	# Piped via curl - use current working directory (should be homebrew-tap)
+	TAP_ROOT="$(pwd)"
 fi
 
 usage() {
-  cat <<EOF
+	cat <<EOF
 Update a Homebrew formula with new version and checksums
 
 Usage: $0 <app-name> <version> [options]
@@ -47,13 +47,13 @@ EOF
 
 # Check for help flag first
 if [[ "${1:-}" == "-h" ]] || [[ "${1:-}" == "--help" ]]; then
-  usage
-  exit 0
+	usage
+	exit 0
 fi
 
 if [[ $# -lt 2 ]]; then
-  usage
-  exit 1
+	usage
+	exit 1
 fi
 
 APP_NAME="$1"
@@ -68,32 +68,32 @@ shift 2
 
 # Parse options
 while [[ $# -gt 0 ]]; do
-  case $1 in
-  --local)
-    SOURCE="local"
-    shift
-    ;;
-  --github)
-    SOURCE="github"
-    shift
-    ;;
-  -h | --help)
-    usage
-    exit 0
-    ;;
-  *)
-    echo "Unknown option: $1"
-    usage
-    exit 1
-    ;;
-  esac
+	case $1 in
+	--local)
+		SOURCE="local"
+		shift
+		;;
+	--github)
+		SOURCE="github"
+		shift
+		;;
+	-h | --help)
+		usage
+		exit 0
+		;;
+	*)
+		echo "Unknown option: $1"
+		usage
+		exit 1
+		;;
+	esac
 done
 
 FORMULA_FILE="${TAP_ROOT}/Formula/${APP_NAME}.rb"
 
 if [[ ! -f "${FORMULA_FILE}" ]]; then
-  echo "Error: Formula file not found: ${FORMULA_FILE}"
-  exit 1
+	echo "Error: Formula file not found: ${FORMULA_FILE}"
+	exit 1
 fi
 
 echo "Updating ${APP_NAME} formula to version ${VERSION}..."
@@ -103,59 +103,70 @@ TEMP_SUMS=$(mktemp)
 trap 'rm -f "${TEMP_SUMS}"' EXIT
 
 if [[ "${SOURCE}" == "local" ]]; then
-  LOCAL_SUMS="${TAP_ROOT}/../${APP_NAME}/dist/release/SHA256SUMS"
-  echo "Using local checksums from ${LOCAL_SUMS}"
+	LOCAL_SUMS="${TAP_ROOT}/../${APP_NAME}/dist/release/SHA256SUMS"
+	echo "Using local checksums from ${LOCAL_SUMS}"
 
-  if [[ ! -f "${LOCAL_SUMS}" ]]; then
-    echo "Error: Local SHA256SUMS file not found: ${LOCAL_SUMS}"
-    exit 1
-  fi
+	if [[ ! -f "${LOCAL_SUMS}" ]]; then
+		echo "Error: Local SHA256SUMS file not found: ${LOCAL_SUMS}"
+		exit 1
+	fi
 
-  cp "${LOCAL_SUMS}" "${TEMP_SUMS}"
+	cp "${LOCAL_SUMS}" "${TEMP_SUMS}"
 else
-  echo "Fetching checksums from GitHub release ${VERSION_TAG}..."
+	echo "Fetching checksums from GitHub release ${VERSION_TAG}..."
 
-  if ! command -v gh &>/dev/null; then
-    echo "Error: GitHub CLI (gh) is required but not installed"
-    echo "Install with: brew install gh"
-    exit 1
-  fi
+	if ! command -v gh &>/dev/null; then
+		echo "Error: GitHub CLI (gh) is required but not installed"
+		echo "Install with: brew install gh"
+		exit 1
+	fi
 
-  if ! gh release view "${VERSION_TAG}" --repo "fulmenhq/${APP_NAME}" &>/dev/null; then
-    echo "Error: Release ${VERSION_TAG} not found for fulmenhq/${APP_NAME}"
-    exit 1
-  fi
+	if ! gh release view "${VERSION_TAG}" --repo "fulmenhq/${APP_NAME}" &>/dev/null; then
+		echo "Error: Release ${VERSION_TAG} not found for fulmenhq/${APP_NAME}"
+		exit 1
+	fi
 
-  gh release download "${VERSION_TAG}" \
-    --repo "fulmenhq/${APP_NAME}" \
-    --pattern "SHA256SUMS" \
-    --output "${TEMP_SUMS}" \
-    --clobber
+	gh release download "${VERSION_TAG}" \
+		--repo "fulmenhq/${APP_NAME}" \
+		--pattern "SHA256SUMS" \
+		--output "${TEMP_SUMS}" \
+		--clobber
 fi
 
 # Extract checksums for each platform
 echo "Extracting checksums..."
 
 get_sha256() {
-  local filename="$1"
-  grep "${filename}" "${TEMP_SUMS}" | awk '{print $1}' || echo ""
+	local filename
+	for filename in "$@"; do
+		if [[ -z "${filename}" ]]; then
+			continue
+		fi
+		local sha
+		sha=$(grep "${filename}" "${TEMP_SUMS}" | awk '{print $1}' || true)
+		if [[ -n "${sha}" ]]; then
+			echo "${sha}"
+			return 0
+		fi
+	done
+	echo ""
 }
 
-DARWIN_AMD64_SHA=$(get_sha256 "${APP_NAME}_v${VERSION}_darwin_amd64.tar.gz")
-DARWIN_ARM64_SHA=$(get_sha256 "${APP_NAME}_v${VERSION}_darwin_arm64.tar.gz")
-LINUX_AMD64_SHA=$(get_sha256 "${APP_NAME}_v${VERSION}_linux_amd64.tar.gz")
-LINUX_ARM64_SHA=$(get_sha256 "${APP_NAME}_v${VERSION}_linux_arm64.tar.gz")
+DARWIN_AMD64_SHA=$(get_sha256 "${APP_NAME}_v${VERSION}_darwin_amd64.tar.gz" "${APP_NAME}-darwin-amd64")
+DARWIN_ARM64_SHA=$(get_sha256 "${APP_NAME}_v${VERSION}_darwin_arm64.tar.gz" "${APP_NAME}-darwin-arm64")
+LINUX_AMD64_SHA=$(get_sha256 "${APP_NAME}_v${VERSION}_linux_amd64.tar.gz" "${APP_NAME}-linux-amd64")
+LINUX_ARM64_SHA=$(get_sha256 "${APP_NAME}_v${VERSION}_linux_arm64.tar.gz" "${APP_NAME}-linux-arm64")
 
 # Validate that we got all checksums
 if [[ -z "${DARWIN_AMD64_SHA}" ]] || [[ -z "${DARWIN_ARM64_SHA}" ]] ||
-  [[ -z "${LINUX_AMD64_SHA}" ]] || [[ -z "${LINUX_ARM64_SHA}" ]]; then
-  echo "Error: Could not extract all required checksums from SHA256SUMS"
-  echo "Found:"
-  echo "  darwin_amd64: ${DARWIN_AMD64_SHA:-MISSING}"
-  echo "  darwin_arm64: ${DARWIN_ARM64_SHA:-MISSING}"
-  echo "  linux_amd64:  ${LINUX_AMD64_SHA:-MISSING}"
-  echo "  linux_arm64:  ${LINUX_ARM64_SHA:-MISSING}"
-  exit 1
+	[[ -z "${LINUX_AMD64_SHA}" ]] || [[ -z "${LINUX_ARM64_SHA}" ]]; then
+	echo "Error: Could not extract all required checksums from SHA256SUMS"
+	echo "Found:"
+	echo "  darwin_amd64: ${DARWIN_AMD64_SHA:-MISSING}"
+	echo "  darwin_arm64: ${DARWIN_ARM64_SHA:-MISSING}"
+	echo "  linux_amd64:  ${LINUX_AMD64_SHA:-MISSING}"
+	echo "  linux_arm64:  ${LINUX_ARM64_SHA:-MISSING}"
+	exit 1
 fi
 
 echo "Checksums extracted:"
@@ -173,20 +184,20 @@ trap 'rm -f "${TEMP_SUMS}" "${TEMP_FORMULA}"' EXIT
 
 # Use sed to update version and checksums
 sed -e "s/version \"[^\"]*\"/version \"${VERSION}\"/" \
-  -e "s|releases/download/v[^/]*/|releases/download/${VERSION_TAG}/|g" \
-  -e "s/${APP_NAME}_v[0-9.]*_darwin_amd64/${APP_NAME}_v${VERSION}_darwin_amd64/g" \
-  -e "s/${APP_NAME}_v[0-9.]*_darwin_arm64/${APP_NAME}_v${VERSION}_darwin_arm64/g" \
-  -e "s/${APP_NAME}_v[0-9.]*_linux_amd64/${APP_NAME}_v${VERSION}_linux_amd64/g" \
-  -e "s/${APP_NAME}_v[0-9.]*_linux_arm64/${APP_NAME}_v${VERSION}_linux_arm64/g" \
-  "${FORMULA_FILE}" >"${TEMP_FORMULA}"
+	-e "s|releases/download/v[^/]*/|releases/download/${VERSION_TAG}/|g" \
+	-e "s/${APP_NAME}_v[0-9.]*_darwin_amd64/${APP_NAME}_v${VERSION}_darwin_amd64/g" \
+	-e "s/${APP_NAME}_v[0-9.]*_darwin_arm64/${APP_NAME}_v${VERSION}_darwin_arm64/g" \
+	-e "s/${APP_NAME}_v[0-9.]*_linux_amd64/${APP_NAME}_v${VERSION}_linux_amd64/g" \
+	-e "s/${APP_NAME}_v[0-9.]*_linux_arm64/${APP_NAME}_v${VERSION}_linux_arm64/g" \
+	"${FORMULA_FILE}" >"${TEMP_FORMULA}"
 
 # Now update the SHA256 values
 # This is a bit tricky - we need to update each sha256 in the correct context
 # shellcheck disable=SC1004,SC1009,SC1072,SC1073
 awk -v da="${DARWIN_AMD64_SHA}" \
-  -v dr="${DARWIN_ARM64_SHA}" \
-  -v la="${LINUX_AMD64_SHA}" \
-  -v lr="${LINUX_ARM64_SHA}" '
+	-v dr="${DARWIN_ARM64_SHA}" \
+	-v la="${LINUX_AMD64_SHA}" \
+	-v lr="${LINUX_ARM64_SHA}" '
   BEGIN {
     context = ""
   }
