@@ -157,23 +157,42 @@ DARWIN_ARM64_SHA=$(get_sha256 "${APP_NAME}_v${VERSION}_darwin_arm64.tar.gz" "${A
 LINUX_AMD64_SHA=$(get_sha256 "${APP_NAME}_v${VERSION}_linux_amd64.tar.gz" "${APP_NAME}-linux-amd64")
 LINUX_ARM64_SHA=$(get_sha256 "${APP_NAME}_v${VERSION}_linux_arm64.tar.gz" "${APP_NAME}-linux-arm64")
 
-# Validate that we got all checksums
-if [[ -z "${DARWIN_AMD64_SHA}" ]] || [[ -z "${DARWIN_ARM64_SHA}" ]] ||
-	[[ -z "${LINUX_AMD64_SHA}" ]] || [[ -z "${LINUX_ARM64_SHA}" ]]; then
-	echo "Error: Could not extract all required checksums from SHA256SUMS"
-	echo "Found:"
-	echo "  darwin_amd64: ${DARWIN_AMD64_SHA:-MISSING}"
-	echo "  darwin_arm64: ${DARWIN_ARM64_SHA:-MISSING}"
-	echo "  linux_amd64:  ${LINUX_AMD64_SHA:-MISSING}"
-	echo "  linux_arm64:  ${LINUX_ARM64_SHA:-MISSING}"
+# Validate checksums — but only require a platform whose binary the formula
+# actually references. Products may ship a subset of platforms (e.g. sumpter
+# retired darwin-amd64 in v0.1.10, so its formula is macOS arm-only). A platform
+# absent from the formula is skipped, not treated as an error.
+platform_referenced() {
+	# $1 = platform token like "darwin_amd64"; match archive (_darwin_amd64) or
+	# raw-binary (-darwin-amd64) naming in the formula.
+	local us="$1"
+	local hy="${us//_/-}"
+	grep -Eq "${APP_NAME}_v[0-9][0-9.]*_${us}|${APP_NAME}-${hy}([^0-9a-zA-Z]|$)" "${FORMULA_FILE}"
+}
+
+missing=0
+echo "Checksums:"
+check_platform() {
+	# $1 = platform token, $2 = its extracted sha (may be empty)
+	if platform_referenced "$1"; then
+		if [[ -z "$2" ]]; then
+			echo "  $1: MISSING (referenced in ${APP_NAME}.rb but absent from SHA256SUMS)"
+			missing=1
+		else
+			echo "  $1: $2"
+		fi
+	else
+		echo "  $1: skipped (not referenced in ${APP_NAME}.rb)"
+	fi
+}
+check_platform darwin_amd64 "${DARWIN_AMD64_SHA}"
+check_platform darwin_arm64 "${DARWIN_ARM64_SHA}"
+check_platform linux_amd64 "${LINUX_AMD64_SHA}"
+check_platform linux_arm64 "${LINUX_ARM64_SHA}"
+
+if [[ "${missing}" -ne 0 ]]; then
+	echo "Error: a platform referenced in ${APP_NAME}.rb is missing from SHA256SUMS"
 	exit 1
 fi
-
-echo "Checksums extracted:"
-echo "  darwin_amd64: ${DARWIN_AMD64_SHA}"
-echo "  darwin_arm64: ${DARWIN_ARM64_SHA}"
-echo "  linux_amd64:  ${LINUX_AMD64_SHA}"
-echo "  linux_arm64:  ${LINUX_ARM64_SHA}"
 
 # Update the formula file
 echo "Updating formula file..."
