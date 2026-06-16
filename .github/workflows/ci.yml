@@ -1,0 +1,25 @@
+name: checks
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  checks:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+
+      - name: Install shellcheck and shfmt
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q shellcheck shfmt
+
+      - name: Lint and format checks
+        run: make check
+
+      - name: Smoke test
+        run: make test
