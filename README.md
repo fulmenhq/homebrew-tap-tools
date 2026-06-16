@@ -1,5 +1,7 @@
 # Homebrew Tap Tools
 
+[![checks](https://github.com/fulmenhq/homebrew-tap-tools/actions/workflows/ci.yml/badge.svg)](https://github.com/fulmenhq/homebrew-tap-tools/actions/workflows/ci.yml)
+
 Developer tools for maintaining FulmenHQ Homebrew taps and formulas. This repository contains scripts and utilities used by maintainers to automate formula updates, releases, and validation.
 
 **Scope:** Scripts in this repository are specific to the `fulmenhq` GitHub organization and assume FulmenHQ release conventions (artifact naming, platform support, etc.). Other organizations within 3 Leaps should create their own `homebrew-tap-tools` repositories tailored to their needs.
@@ -54,6 +56,8 @@ update-formula:
 .
 ├── README.md               # This file
 ├── update-formula.sh       # Formula update automation
+├── Makefile                # check / format / test / precommit targets
+├── .github/workflows/      # CI (shellcheck + shfmt + smoke test)
 └── LICENSE                 # MIT License
 ```
 
@@ -67,9 +71,19 @@ This tooling repository supports FulmenHQ Homebrew taps:
 - Document all scripts thoroughly
 - Test changes against real formula files
 - Follow shell scripting best practices
-- Run `make precommit` before committing changes
+- Run `make check` (lint + format) and `make precommit` before committing changes
 
 ## Development
+
+**Checks:**
+
+```bash
+make check      # shellcheck + shfmt -i 2
+make test       # smoke test (--help / usage)
+make precommit  # check + test
+```
+
+These run in CI (`.github/workflows/ci.yml`) on every push and pull request.
 
 **Testing Locally:**
 
@@ -81,7 +95,7 @@ This tooling repository supports FulmenHQ Homebrew taps:
 ./update-formula.sh goneat 0.3.5 --github
 ```
 
-**Style:** Scripts use 2-space indentation. Note that `update-formula.sh` contains a complex AWK heredoc that may not pass all `shfmt` formatters.
+**Style:** Scripts use 2-space indentation (`shfmt -i 2`), enforced by `make check` and CI.
 
 ## Why This Repository?
 
