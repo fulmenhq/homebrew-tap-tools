@@ -13,13 +13,14 @@ Developer tools for maintaining FulmenHQ Homebrew taps and formulas. This reposi
 
 ### `update-formula.sh`
 
-Automates formula updates by fetching release artifacts from GitHub and updating formula files with new versions and SHA256 checksums.
+Automates formula updates by fetching release artifacts from GitHub (or local builds) and rewriting formula download URLs and SHA256 checksums.
 
 **Features:**
 - Fetches SHA256SUMS from GitHub releases or local builds
 - Extracts checksums for multiple platforms (darwin/linux × amd64/arm64)
-- Updates formula files with new versions, URLs, and checksums
+- Updates formula URLs / artifact names and platform SHA256 values
 - Context-aware SHA256 replacement using AWK
+- **Does not write an explicit `version "..."` stanza** — Homebrew audit rejects a stable version that is redundant with the version already scanned from the GitHub release URL. Any legacy `version` line is stripped on update so re-runs stay `brew audit` clean.
 
 **Usage:**
 
@@ -31,14 +32,16 @@ Automates formula updates by fetching release artifacts from GitHub and updating
 ./update-formula.sh <app-name> <version> --local
 
 # Examples
-./update-formula.sh goneat 0.3.5 --github
+./update-formula.sh goneat 0.5.15 --github
 ./update-formula.sh myapp 1.0.0 --local
 ```
 
+Run the script with the **homebrew-tap** directory as the working tree root (so `Formula/<app>.rb` exists), or invoke it via the tap’s `make update-*` targets (which prefer a sibling `../homebrew-tap-tools` clone).
+
 **Requirements:**
-- `gh` (GitHub CLI) - for fetching releases from GitHub
+- `gh` (GitHub CLI) - for fetching releases from GitHub (`--github`)
 - `awk` - for context-aware checksums replacement
-- `sed` - for version/URL updates
+- `sed` - for URL / artifact-name updates and stripping legacy version lines
 
 **Integration with Makefile:**
 
@@ -88,11 +91,10 @@ These run in CI (`.github/workflows/ci.yml`) on every push and pull request.
 **Testing Locally:**
 
 ```bash
-# Dry run (requires formula file to exist)
-./update-formula.sh myapp 1.0.0 --local
+make test       # includes offline rewrite smoke (strips version, rewrites URL/sha256)
 
-# Run with actual GitHub release
-./update-formula.sh goneat 0.3.5 --github
+# Live update (requires Formula/<app>.rb in CWD and a GitHub release)
+./update-formula.sh goneat 0.5.15 --github
 ```
 
 **Style:** Scripts use 2-space indentation (`shfmt -i 2`), enforced by `make check` and CI.

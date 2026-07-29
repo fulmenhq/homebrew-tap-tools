@@ -41,9 +41,35 @@ test:
 	@./update-formula.sh --help > /dev/null
 	@echo "✓ Script --help works"
 	@./update-formula.sh 2>&1 | grep -q "Usage:" && echo "✓ Script usage message works"
+	@echo "Running offline formula rewrite smoke (strips version, rewrites URL/sha256)..."
+	@set -euo pipefail; \
+	  tmp=$$(mktemp -d); \
+	  trap 'rm -rf "$$tmp"' EXIT; \
+	  mkdir -p "$$tmp/tap/Formula" "$$tmp/demoapp/dist/release"; \
+	  printf '%s\n' \
+	    'class Demoapp < Formula' \
+	    '  desc "demo"' \
+	    '  homepage "https://github.com/fulmenhq/demoapp"' \
+	    '  version "0.1.0"' \
+	    '  license "MIT"' \
+	    '  on_macos do' \
+	    '    on_arm do' \
+	    '      url "https://github.com/fulmenhq/demoapp/releases/download/v0.1.0/demoapp_v0.1.0_darwin_arm64.tar.gz"' \
+	    '      sha256 "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"' \
+	    '    end' \
+	    '  end' \
+	    'end' > "$$tmp/tap/Formula/demoapp.rb"; \
+	  printf '%s\n' \
+	    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb  demoapp_v0.2.0_darwin_arm64.tar.gz' \
+	    > "$$tmp/demoapp/dist/release/SHA256SUMS"; \
+	  (cd "$$tmp/tap" && "$(CURDIR)/update-formula.sh" demoapp 0.2.0 --local); \
+	  ! grep -q 'version "' "$$tmp/tap/Formula/demoapp.rb"; \
+	  grep -q 'releases/download/v0.2.0/demoapp_v0.2.0_darwin_arm64.tar.gz' "$$tmp/tap/Formula/demoapp.rb"; \
+	  grep -q 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' "$$tmp/tap/Formula/demoapp.rb"; \
+	  echo "✓ Offline rewrite smoke passed (no version stanza; URL + sha256 updated)"
 	@echo ""
-	@echo "Note: Full functional test requires a formula file and GitHub release"
-	@echo "  Example: ./update-formula.sh goneat 0.3.5 --github"
+	@echo "Optional live test (needs network + gh):"
+	@echo "  Example: ./update-formula.sh goneat 0.5.15 --github"
 
 # Run all pre-commit checks
 precommit: check test
