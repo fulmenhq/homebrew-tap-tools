@@ -201,8 +201,11 @@ echo "Updating formula file..."
 TEMP_FORMULA=$(mktemp)
 trap 'rm -f "${TEMP_SUMS}" "${TEMP_FORMULA}"' EXIT
 
-# Use sed to update version and checksums
-sed -e "s/version \"[^\"]*\"/version \"${VERSION}\"/" \
+# Update URLs/artifact names from VERSION. Do not emit an explicit `version "..."`
+# stanza — brew audit rejects it when the version is already scanned from the URL
+# (`Stable: version X is redundant with version scanned from URL`).
+# Also strip any legacy version line so re-runs stay audit-clean.
+sed -e '/^  version "/d' \
   -e "s|releases/download/v[^/]*/|releases/download/${VERSION_TAG}/|g" \
   -e "s/${APP_NAME}_v[0-9.]*_darwin_amd64/${APP_NAME}_v${VERSION}_darwin_amd64/g" \
   -e "s/${APP_NAME}_v[0-9.]*_darwin_arm64/${APP_NAME}_v${VERSION}_darwin_arm64/g" \
